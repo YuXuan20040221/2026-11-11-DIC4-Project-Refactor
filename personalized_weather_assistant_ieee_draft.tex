@@ -1,0 +1,425 @@
+% Overleaf compiler setting: Menu -> Compiler -> XeLaTeX
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage[UTF8, heading=false]{ctex}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\lstset{
+    basicstyle=\ttfamily\scriptsize,
+    breaklines=true,
+    columns=fullflexible,
+    frame=single
+}
+
+\title{個人化天氣助理：整合多源環境資料、個人偏好與可追溯行前建議之 AI Agent 系統}
+\author{
+\IEEEauthorblockN{作者姓名}
+\IEEEauthorblockA{單位名稱\\
+臺灣\\
+電子郵件：author@example.com}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+氣象預報與空氣品質監測資料是民眾規劃日常活動的重要參考，但政府開放資料平台主要著重環境數據的查詢與呈現，使用者仍需自行整合不同來源、依據活動情境與個人需求判斷。既有天氣資訊服務大多提供通用預報，對個人偏好、行程情境與環境風險因素的整合仍有限。
+
+本文提出一套個人化天氣助理（Personalized Weather Assistant）AI Agent 系統，整合中央氣象署天氣預報與環境部空氣品質監測及預報資料，針對多站行程產生符合地點、時段、活動型態與個人偏好的行前建議。本系統採用混合式架構：由結合領域知識的規則決策引擎處理降雨、紫外線、空氣品質、冷熱舒適及資料品質判斷；大型語言模型（LLM）僅負責需求解析、既有決策的自然語言解釋及後續問答，不得修改判斷結果或補造資料。
+
+本研究預期比較僅呈現官方環境數據、固定規則結合文字模板，以及規則引擎結合個人偏好與 LLM 三種方法。評估情境涵蓋多站跨鄉鎮行程、高降雨機率、高紫外線指數、相同 AQI 而主要污染物不同，以及資料缺漏、過期或超出空氣品質預報範圍。評估指標包含建議可重現性、重要提醒遺漏率、資料限制揭露率、符合程度、實用性、可理解性、API 成功率與回應時間。本研究期望降低使用者跨平台查詢與自行整合環境資訊的負擔，提升行前建議的個人相關性、可理解性、實用性及可追溯性。
+\end{abstract}
+
+\begin{IEEEkeywords}
+AI Agent、個人化推薦、氣象資訊整合、空氣品質、領域知識、大型語言模型
+\end{IEEEkeywords}
+
+\section{緒論}
+
+\subsection{研究背景與動機}
+隨著氣象資訊與環境監測技術發展，使用者可透過網路取得天氣預報、降雨機率及空氣品質等資訊。然而，不同環境指標分布於不同平台，使用者往後需要自行判斷是否攜帶雨具、做好防曬或調整戶外活動。臺灣中央氣象署提供氣象開放資料，環境部亦提供空氣品質指標與污染物監測資料，為資料整合建立了可行基礎。
+
+取得環境資訊並不代表使用者能立即做出符合需求的決策。相同氣溫與濕度下，不同使用者對悶熱或寒冷的感受可能不同；相同 AQI 下，不同使用者對空氣品質資訊的關注程度也可能不同。因此，除了呈現客觀數據，系統更需依個人偏好將資訊轉換成具體且可執行的行動建議。
+
+\subsection{問題定義與既有方法的限制}
+使用者若同時考量降雨、溫度、濕度、紫外線與空氣品質，可能需要切換多個平台並自行整合資料。一般化天氣資訊通常僅描述特定地區與時間的環境狀況，未必能回應個別活動、暴露時間與偏好。現有研究雖已探討大型語言模型於天氣對話、空氣品質解讀及個人化推薦的應用，但尚未充分驗證能否完整整合多源環境資料、個人偏好、行動建議、資料品質與判斷追溯。
+
+\subsection{研究方法與創新之處}
+本研究開發個人化天氣助理網站，整合氣象與空氣品質資料，並依使用者偏好提供客製化的行前建議。系統將行程標準化為地點、時間區間、活動型態與戶外暴露程度，再依降雨、紫外線、AQI、主要污染物、溫濕度及偏好產生建議。規則模組負責數值判斷與官方防護門檻，LLM 負責自然語言理解與結果解釋。系統不重新預測客觀天氣，而是針對相同環境條件依不同需求調整建議的資訊內容與優先度。
+
+\subsection{預期貢獻}
+\begin{enumerate}[leftmargin=*]
+\item \textbf{環境資料整合：}建立統一介面，整合氣象預報與空氣品質資料。
+\item \textbf{個人化偏好設定：}依溫度、濕度、降雨、紫外線與空氣品質等偏好調整建議。
+\item \textbf{行前建議機制：}將環境數據轉換為可執行的出門準備建議。
+\item \textbf{系統實作與評估：}透過功能測試、失敗情境及使用者回饋評估正確性、實用性與操作便利性。
+\end{enumerate}
+
+\section{相關研究}
+
+\subsection{AI 技術面}
+\subsubsection{LLM Agent 應用於天氣資訊解讀}
+Weather Agent 展示自然語言查詢天氣資訊的應用潛力；然而，既有公開資料尚未充分驗證依個人健康耐受度調整行動建議的完整成效 \cite{weathernews2025}。
+
+\subsubsection{LLM 應用於空氣品質與健康建議}
+Pan 與 Nipu 使用 MCP 將 LLM 與即時空氣品質監測資料連接，專家評估 15 則回答的事實正確性平均為 4.78／5，但評估規模有限且評分者一致性偏低 \cite{pan2025}。洛杉磯野火案例採 Instructor--Worker 多代理架構，並以 Google Air Quality API 建議作參考，但主要評估生成文字與參考文本的語意相似度 \cite{gao2025}。
+
+\subsubsection{個人化 LLM 與記憶模組}
+LLM 推薦 Agent 可由 Profile、Memory、Planning 與 Action 等組件構成 \cite{peng2025}。記憶輔助推薦能依目前查詢擷取歷史記憶的相關部分，而非將全部紀錄輸入模型 \cite{chen2025}。本研究將使用者耐受度檔案與此類選擇性檢索概念結合。
+
+\subsubsection{LLM 在氣象影響理解上的限制}
+WXImpactBench 建立劇烈天氣社會影響評測基準，顯示此領域仍需獨立評測 \cite{yu2025}。因此，本研究採規則模組處理指標計算與門檻判斷，由 LLM 解釋既有結果。
+
+\subsection{領域知識面}
+室內熱舒適研究顯示個體差異與時間變化會影響熱感覺，但室內結果不能直接外推至戶外環境 \cite{abdulraheem2025}。台灣台北與台中於 1990 至 2023 年的逐時氣象研究指出，都市熱島效應可能構成戶外熱舒適差異的重要因素 \cite{shih2025}。
+
+短期 PM2.5 暴露研究發現，即使低於 2021 年 WHO 指引值，仍可能與部分住院及急診就醫結果相關；此結果不能直接訂定臺灣 AQI 門檻或個人口罩建議 \cite{sun2024}。WHO 建議紫外線指數達到 3 以上時採取防曬措施。降雨機率研究亦指出部分民眾可能將機率誤解為降雨時間或降雨面積比例 \cite{joslyn2009}。WMO 則提出影響導向預報與警報服務應連結危害、暴露、脆弱度與行動 \cite{wmo2015}。
+
+\subsection{文獻摘要與研究缺口}
+既有研究已展示天氣對話、空品資料解讀、個人化推薦與戶外熱舒適的相關方法，但多數工作僅處理其中一項問題。目前尚未看到一套經完整驗證的系統，同時整合多源天氣與空氣品質資料、個人偏好、行動建議、資料品質及判斷追溯。因此，本研究聚焦於混合式架構與可重現評估。
+
+\begin{table*}[t]
+\caption{文獻摘要表}
+\label{tab:lit}
+\centering
+\scriptsize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.12\textwidth}
+>{\centering\arraybackslash}p{0.06\textwidth}
+>{\raggedright\arraybackslash}p{0.18\textwidth}
+>{\raggedright\arraybackslash}p{0.22\textwidth}
+>{\raggedright\arraybackslash}p{0.26\textwidth}@{}}
+\toprule
+\textbf{研究} & \textbf{年份} & \textbf{問題／方法} & \textbf{主要發現} & \textbf{限制／與本研究關係} \\
+\midrule
+Weather Agent \cite{weathernews2025} & 2025 & AI 天氣對話查詢 & 展示聊天式氣象資訊應用 & 未提供個人耐受度建模或獨立成效評估 \\
+Pan and Nipu \cite{pan2025} & 2025 & LLM + MCP 空品查詢 & 專家事實正確性平均 4.78/5 & 評估規模有限；未依個人耐受度產生建議 \\
+Gao et al. \cite{gao2025} & 2025 & 多代理人空品健康建議 & 結合分區健康建議與空品資料 & 單一事件案例；語意相似度不等同健康效益 \\
+LLM Recommender Survey \cite{peng2025} & 2025 & LLM 推薦架構綜述 & 整理 Profile、Memory、Planning、Action & 通用推薦領域，未針對天氣或健康 \\
+Memory-Assisted LLM \cite{chen2025} & 2025 & 使用者歷史記憶檢索 & 選擇性記憶改善評分預測 & 未驗證戶外天氣健康情境 \\
+WXImpactBench \cite{yu2025} & 2025 & 劇烈天氣影響理解評測 & 建立分類與問答基準 & 聚焦災害情境，非日常行前決策 \\
+PCM-RL \cite{abdulraheem2025} & 2025 & 個人化熱舒適 & 處理個體與時間變化 & 室內情境，不能直接代表戶外暴露 \\
+Taiwan UTCI \cite{shih2025} & 2025 & 戶外熱舒適長期變化 & 分析城市及熱島效應 & 未建模個人耐受度 \\
+PM2.5 Study \cite{sun2024} & 2024 & 低濃度暴露與健康 & 發現與部分醫療利用相關 & 美國人口；不能直接推導臺灣 AQI 門檻 \\
+UV Review \cite{kaiser2025} & 2025 & UVI 認知與防護 & 認知及使用程度具地區差異 & 不直接證明特定提醒介面的效果 \\
+Probability Study \cite{joslyn2009} & 2009 & 降雨機率理解 & 部分受試者存在比例誤解 & 樣本與地區有限 \\
+WMO Guideline \cite{wmo2015} & 2015 & 影響導向預報與警報 & 強調危害與行動連結 & 聚焦多重危害及警報服務 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\section{三大核心問題}
+
+\subsection{Q1：五個核心思維模式}
+\subsubsection{以使用者行動與影響為中心}
+系統應同時顯示環境條件、可能影響與建議行動，並納入目的地、出門時間、活動與戶外暴露時間。例如，若午後降雨機率偏高，且使用者預計步行外出，建議攜帶雨具並出發前確認最新預報。
+
+\subsubsection{相同環境條件不代表相同需求}
+客觀環境數據應保持一致，但建議可隨偏好、活動、暴露時間與行動成本調整。環境資料、使用者偏好與活動情境應分開保存。
+
+\subsubsection{預報不確定性與錯誤代價}
+降雨機率不能直接解讀為確定或不確定下雨。攜帶雨具的成本、淋雨損失與替代方案共同構成決策。定義 $p$ 為與活動情境相符的遇雨機率，$C$ 為攜帶雨具的成本，$L$ 為未攜帶雨具且遇雨的損失，$r$ 為雨具可避免的損失比例，攜帶雨具的成本條件可表示為：
+\begin{equation}
+p\,rL > C.
+\end{equation}
+實作時仍需確認預報時段、地點及活動暴露是否對齊。
+
+\subsubsection{舒適偏好與健康防護分離}
+主觀舒適可調整提醒門檻與呈現優先度，但不能刪除由官方指引觸發的健康防護提醒。空氣品質建議應保留主要污染物，不能只依 AQI 數字產生相同文字。
+
+\subsubsection{建議可追溯且分層驗證}
+建議應保存資料來源、測站或行政區、發布時間、有效時段及判斷規則。系統應先產生結構化判斷，再由 LLM 解釋；資料缺失時不得自行補值。
+
+\subsection{Q2：三個重要專業爭論}
+\subsubsection{固定規則判斷與 LLM 自主建議}
+固定規則的優點是門檻、優先序與例外容易測試與追溯；LLM 則適合理解複合自然語言需求並產生可讀說明。本研究採規則負責判斷、LLM 負責解釋，並以固定文字模板作為比較基準。
+
+\subsubsection{統一標準與個人耐受度}
+統一標準容易維護且適合冷啟動；個人偏好則可能降低過度提醒或提醒不足。偏好資料不能等同於健康風險證據，應將舒適偏好與官方健康防護分離處理。
+
+\subsubsection{簡單行動建議與保留不確定性}
+直接建議便於行動，但過度簡化可能將機率變成保證。本系統採分層呈現：第一層顯示主要行動，第二層簡述原因，展開後顯示原始數值、來源、有效時段與限制。
+
+\subsection{Q3：深度理解與失敗情境}
+本研究將以下問題納入設計與評估：
+\begin{enumerate}[leftmargin=*]
+\item 相同環境數據如何因偏好、活動、暴露時間與行動成本產生不同建議。
+\item 沒有主觀不適是否代表不需防護提醒。
+\item 相同降雨機率下，不同戶外暴露時間是否應有不同門檻。
+\item 天氣與空品資料更新時間不一致時如何標示限制及停止判定。
+\item 親切文字是否能證明決策效益。
+\item 如何公平比較規則、模板與 LLM 方法。
+\item 新使用者缺乏歷史紀錄時如何進行冷啟動。
+\item 跨地區行程如何依目的地與停留時段產生建議。
+\item 相同 AQI 是否因主要污染物不同而需要不同防護文字。
+\item 個人化滿意度與重要提醒遺漏發生衝突時應如何決策。
+\end{enumerate}
+
+\section{系統設計}
+
+\subsection{設計目標與原則}
+本系統協助使用者針對臺灣境內多站行程，理解各站於指定時段的天氣與空氣品質，並依活動與個人偏好產生可採取的建議。設計原則如下：
+\begin{enumerate}[leftmargin=*]
+\item \textbf{資料優先：}建議必須由官方資料與明確規則產生。
+\item \textbf{行程分段：}每站獨立取數、驗證並判斷，最後彙整全行程。
+\item \textbf{健康與舒適分離：}健康防護依官方資料與規則，舒適偏好只調整提醒呈現。
+\item \textbf{不確定性可見：}資料過期、缺漏、空間解析度不足或無預報時必須說明限制。
+\item \textbf{個人化須可控制：}長期偏好只能由使用者設定或確認後更新。
+\end{enumerate}
+
+\subsection{使用情境與範圍}
+使用者建立包含地點、停留時間、活動型態與戶外暴露程度的行程。例如：
+\begin{verbatim}
+2026-10-21
+09:00-12:00  臺中市南區  步行上課  一般戶外暴露
+14:00-17:00  彰化市      戶外活動  長時間戶外暴露
+19:00-21:00  臺中市南區  騎車返家  一般戶外暴露
+\end{verbatim}
+系統針對使用者指定的停留站產生建議，不分析兩站間的移動路線。
+
+\subsection{系統架構}
+系統包含使用者介面、行程解析、地點與時段標準化、帳號與偏好管理、官方資料取得、資料品質與時空對齊、規則決策、行程彙整、LLM 解釋、結果呈現，以及行後回饋與偏好候選更新等模組。
+
+\begin{table*}[t]
+\caption{系統模組與職責}
+\label{tab:modules}
+\centering
+\scriptsize
+\begin{tabular}{@{}c>{\raggedright\arraybackslash}p{0.16\textwidth}
+>{\raggedright\arraybackslash}p{0.25\textwidth}
+>{\raggedright\arraybackslash}p{0.18\textwidth}
+>{\raggedright\arraybackslash}p{0.20\textwidth}@{}}
+\toprule
+\textbf{編號} & \textbf{模組} & \textbf{主要職責} & \textbf{主要輸入} & \textbf{主要輸出} \\
+\midrule
+1 & 使用者介面 & 建立、編輯及顯示行程 & 地點、時間、活動、偏好 & 行程請求、結果畫面 \\
+2 & 行程與需求解析 & 解析表單或自然語言補充 & 使用者輸入 & 行程段草稿 \\
+3 & 地點與時段標準化 & 驗證地點並切分時段 & 行程段草稿 & \texttt{ItinerarySegment} \\
+4 & 帳號與偏好管理 & 保存偏好、紀錄及候選更新 & 帳號與回饋資料 & \texttt{UserProfile} \\
+5 & 官方資料取得 & 呼叫氣象與空品來源 & 標準化行程段 & 原始資料與 metadata \\
+6 & 資料品質與對齊 & 比對時間、空間與缺漏 & 原始資料、行程段 & \texttt{EnvironmentalSnapshot} \\
+7 & 規則決策引擎 & 產生結構化建議 & 快照、行程段、偏好 & \texttt{SegmentDecision} \\
+8 & 行程建議彙整 & 排序風險並合併提醒 & 多站決策 & \texttt{TripRecommendation} \\
+9 & LLM 解釋與問答 & 解釋既有決策與追問 & 結構化決策 & 自然語言說明 \\
+10 & 結果與證據呈現 & 顯示建議、依據與限制 & 行程建議 & 使用者可讀結果 \\
+11 & 回饋與偏好更新 & 蒐集回饋並建立候選 & 問卷、歷史紀錄 & \texttt{FeedbackRecord} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{資料策略與時空對齊}
+中央氣象署資料用於溫度、濕度、降雨機率、紫外線與天氣描述；環境部即時資料用於 AQI、主要污染物與測站座標；環境部預報資料則以空品區與預報日期呈現，不可標示為單一地點或單一小時觀測值。
+
+\begin{table}[t]
+\caption{官方資料來源與對齊策略}
+\label{tab:datasources}
+\centering
+\scriptsize
+\begin{tabular}{@{}p{0.16\columnwidth}p{0.25\columnwidth}p{0.22\columnwidth}p{0.27\columnwidth}@{}}
+\toprule
+\textbf{資料類型} & \textbf{來源與粒度} & \textbf{使用時機} & \textbf{必須揭露} \\
+\midrule
+天氣預報 & 中央氣象署；鄉鎮與預報時段 & 所有可用未來行程站 & 鄉鎮、有效時段、發布時間 \\
+即時空品 & 環境部；最近可用測站 & 當前或進行中的行程段 & 測站、距離、發布時間、主要污染物 \\
+空品預報 & 環境部 AQF\_P\_01；空品區與日期 & 官方隔日預報範圍 & 空品區、預報日期、發布時間、主要污染物 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+資料選擇規則如下：
+\begin{enumerate}[leftmargin=*]
+\item 行程段正在進行或屬於目前時段時，使用最近可用測站即時資料。
+\item 行程段落在官方隔日預報範圍時，使用空品區隔日預報。
+\item 行程段超出預報範圍時，仍提供天氣建議，空品部分標示「尚無官方預報」且不產生空品風險判定。
+\item 發布時間、有效時段或地點無法對齊時，標示限制，不補值或推測。
+\end{enumerate}
+
+\subsection{資料模型}
+主要資料結構如下：
+\begin{lstlisting}
+UserProfile {
+ userId, explicitPreferences, confirmedPreferenceVersion,
+ createdAt, updatedAt
+}
+
+ItinerarySegment {
+ segmentId, itineraryId, placeName, latitude, longitude,
+ township, airQualityArea, startTime, endTime,
+ activityType, outdoorExposureLevel
+}
+
+EnvironmentalSnapshot {
+ segmentId, sourceType, sourceName,
+ spatialReference, observedOrForecastTime,
+ publishedAt, fetchedAt, weather, airQuality, qualityFlags
+}
+
+SegmentDecision {
+ segmentId, alerts, evidence, limitations
+}
+
+TripRecommendation {
+ summary, segmentDecisions, prioritizedActions,
+ evidence, limitations
+}
+\end{lstlisting}
+
+\subsection{規則引擎與 LLM 職責邊界}
+規則引擎以版本控制並對每項建議輸出規則編號與輸入證據。第一版涵蓋降雨準備、紫外線防護、空品防護、冷熱舒適及資料品質。使用者偏好可降低舒適提醒的呈現優先度，但不得刪除由官方資料觸發的重要防護提醒。
+
+LLM 僅可執行三項工作：
+\begin{enumerate}[leftmargin=*]
+\item 將自然語言補充內容轉成結構化欄位，並請使用者確認不確定欄位。
+\item 將既有 \texttt{TripRecommendation} 改寫為易理解的行程摘要。
+\item 回答「為什麼這樣建議？」；答案僅能引用既有證據與限制。
+\end{enumerate}
+
+\subsection{演算法流程}
+\begin{lstlisting}[language=Pascal]
+Algorithm: Personalized Weather Anchor Agent
+Input: User U, Itinerary I, Explicit Preferences P
+Output: Trip Recommendation TR
+
+01 validate U and retrieve P
+02 validate all itinerary segments in I
+03 if any segment lacks valid location, time, or activity then
+04     request missing or invalid fields
+05 end
+06 normalize each segment into location and time window
+07 Decisions <- empty list
+08 for each normalized segment S in I do
+09     WeatherData <- retrieveCWAForecast(S)
+10     if S is current or in progress then
+11         AirData <- retrieveNearestMoENVStation(S)
+12     else if S matches official next-day forecast then
+13         AirData <- retrieveMoENVForecast(S)
+14     else
+15         AirData <- unavailable
+16     end
+17     Snapshot <- alignAndValidate(WeatherData, AirData, S)
+18     if Snapshot has critical missing, stale, or coarse data then
+19         Decision <- createLimitedDecision(S, qualityFlags)
+20     else
+21         RainAlerts <- evaluateRain(Snapshot, S, P)
+22         UVAlerts <- evaluateUV(Snapshot, S, P)
+23         AirAlerts <- evaluateAirQuality(Snapshot, S, P)
+24         ThermalAlerts <- evaluateThermal(Snapshot, S, P)
+25         Decision <- combineAndPrioritizeAlerts(...)
+26         Decision <- attachEvidenceAndRuleIds(...)
+27     end
+28     append Decision to Decisions
+29 end
+30 TR <- aggregateItineraryDecisions(Decisions)
+31 TR <- prioritizeCriticalProtectionBeforeComfort(TR)
+32 persistDecisionRecord(U, I, TR)
+33 TR.explanation <- explainStructuredRecord(TR)
+34 return TR
+\end{lstlisting}
+
+\subsection{帳號、記憶與回饋}
+系統保存明確偏好、行程紀錄與行後回饋三類資料。明確偏好由使用者設定並可隨時檢視、修改或刪除；行程紀錄保存當時輸入、資料快照與建議；行後回饋保存實際遭遇與符合度。
+
+系統可依回饋建立 \texttt{PreferenceUpdateCandidate}，但不得直接覆寫 \texttt{UserProfile}。使用者接受候選調整後，才建立新的偏好版本。
+
+\section{評估設計}
+
+\subsection{比較組}
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Baseline A：}僅顯示官方天氣與 AQI 原始數值。
+\item \textbf{Baseline B：}固定規則與固定文字模板。
+\item \textbf{Proposed：}規則引擎結合個人偏好與 LLM 解釋。
+\end{enumerate}
+
+\subsection{測試情境}
+測試情境應涵蓋多站與跨鄉鎮行程、有降雨機率但使用者不願攜帶雨具、高 UV 與長時間戶外活動、相同 AQI 與不同主要污染物、即時測站與隔日預報切換，以及資料過期、缺漏或超出預報範圍。
+
+\subsection{評估指標}
+\begin{table}[t]
+\caption{評估指標}
+\label{tab:metrics}
+\centering
+\scriptsize
+\begin{tabular}{@{}p{0.22\columnwidth}p{0.70\columnwidth}@{}}
+\toprule
+\textbf{類型} & \textbf{指標} \\
+\midrule
+正確性 & 建議是否可由保存的官方資料與規則重現 \\
+完整性 & 重要提醒遺漏率、資料限制揭露率 \\
+個人化 & 行後符合度與建議實用性評分 \\
+可理解性 & 使用者能否說出站點、時段及建議原因 \\
+系統性 & API 成功率、資料過期處理率、回應時間 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+公平比較需使用相同資料、使用者條件與評分規準。生成式方法應重複執行以觀察結果變異，並分別評估正確性、遺漏、理解度、延遲與成本。滿意度較高時若重要提醒遺漏率更高，應先訂定可靠性通過門檻，再進行個人化優化。
+
+\section{結論與未來工作}
+本研究提出以官方氣象與空氣品質資料為基礎，結合行程情境、個人偏好與規則決策的個人化天氣助理。系統不以 LLM 替代數值判斷，而是使用規則引擎產生可重現的結構化建議，再由 LLM 解釋與追問。資料來源、發布時間、有效時段、空間解析度與資料限制均納入決策紀錄。
+
+未來工作應包括實作資料介接、規則引擎、偏好管理與回饋機制，並透過受控測試評估重現性、重要提醒完整性與使用者理解度。此外，應建立偏好更新的冷啟動、確認機制與回饋時效規則，避免偶發回饋被過度學成長期偏好。最後，需持續驗證個人化呈現是否提升決策效益，而非只提升文字親切度。
+
+\begin{thebibliography}{20}
+
+\bibitem{weathernews2025}
+Weathernews, ``Making weather more accessible with AI-powered `Weather Agent','' Aug. 8, 2025. [Online]. Available: \url{https://global.weathernews.com/blog/article-2025080802/}
+
+\bibitem{pan2025}
+Y.-E. Pan and A. S. Nipu, ``LLM-enhanced air quality monitoring interface via Model Context Protocol,'' in \emph{Proc. 2025 7th Int. Symp. Adv. Electrical and Communication Technologies (ISAECT)}, 2025, pp. 1--6, doi: 10.1109/ISAECT68904.2025.11318775.
+
+\bibitem{gao2025}
+K. Gao \emph{et al.}, ``Instructor--Worker large language model system for policy recommendation: A case study on air quality analysis of the January 2025 Los Angeles wildfires,'' \emph{Int. J. Appl. Earth Observation and Geoinformation}, vol. 143, Art. no. 104774, 2025.
+
+\bibitem{peng2025}
+Q. Peng \emph{et al.}, ``A survey on LLM-powered agents for recommender systems,'' arXiv:2502.10050, 2025.
+
+\bibitem{chen2025}
+J. Chen, ``Memory assisted LLM for personalized recommendation system,'' arXiv:2505.03824, 2025.
+
+\bibitem{yu2025}
+Y. Yu \emph{et al.}, ``WXImpactBench: A disruptive weather impact understanding benchmark for evaluating large language models,'' in \emph{Findings of the Association for Computational Linguistics: ACL 2025}, 2025, pp. 4016--4035.
+
+\bibitem{abdulraheem2025}
+A. Abdulraheem, S. Lee, and I. Y. Jung, ``Dynamic personalized thermal comfort model: Integrating temporal dynamics and environmental variability with individual preferences,'' \emph{J. Building Engineering}, vol. 102, Art. no. 111938, 2025.
+
+\bibitem{shih2025}
+L. C. Shih, K.-T. Huang, and R.-L. Hwang, ``Exploring the long-term trends of outdoor thermal comfort under urban heat island and climate change effects in Taiwan's cities,'' in \emph{Proc. 12th Int. Conf. Urban Climate}, Rotterdam, Netherlands, 2025.
+
+\bibitem{sun2024}
+Y. Sun \emph{et al.}, ``Short term exposure to low level ambient fine particulate matter and natural cause, cardiovascular, and respiratory morbidity among US adults with health insurance: Case time series study,'' \emph{BMJ}, vol. 384, Art. no. e076322, 2024.
+
+\bibitem{kaiser2025}
+I. Kaiser \emph{et al.}, ``The extent of public awareness and use of the Global Solar UV Index as a worldwide health promotion instrument to improve sun protection: A systematic review and meta-analysis,'' \emph{Photochem. Photobiol.}, vol. 101, no. 3, pp. 636--659, 2025.
+
+\bibitem{joslyn2009}
+S. Joslyn, L. Nadav-Greenberg, and R. M. Nichols, ``Probability of precipitation: Assessment and enhancement of end-user understanding,'' \emph{Bull. Amer. Meteorological Society}, vol. 90, no. 2, 2009.
+
+\bibitem{wmo2015}
+World Meteorological Organization, \emph{WMO Guidelines on Multi-hazard Impact-based Forecast and Warning Services}, WMO-No. 1150, 2015.
+
+\bibitem{aiMeteorologist}
+``AI-Meteorologist,'' arXiv:2512.11819, 2025.
+
+\bibitem{instructorWorker}
+``Instructor--Worker LLM system for policy recommendation,'' arXiv:2503.00566, 2025.
+
+\end{thebibliography}
+
+\end{document}
+\toprule
